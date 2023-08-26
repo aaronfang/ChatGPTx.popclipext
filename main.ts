@@ -53,16 +53,28 @@ interface Options {
     reviseEnabled: boolean
     revisePrimaryLanguage: string
     reviseSecondaryLanguage: string
+    reviseInstruction: string
     polishEnabled: boolean
     polishPrimaryLanguage: string
     polishSecondaryLanguage: string
+    polishInstruction: string
     translateEnabled: boolean
     translatePrimaryLanguage: string
     translateSecondaryLanguage: string
+    translateInstruction: string
     summarizeEnabled: boolean
     summarizePrimaryLanguage: string
     summarizeSecondaryLanguage: string
+    summarizeInstruction: string
 
+    slangEnabled: boolean
+    slangPrimaryLanguage: string
+    slangSecondaryLanguage: string
+    slangInstruction: string
+    expandEnabled: boolean
+    expandPrimaryLanguage: string
+    expandSecondaryLanguage: string
+    expandInstruction: string
     // prompts: string
 }
 
@@ -98,7 +110,7 @@ interface APIResponse {
     }
 }
 
-type AllowedOneTimeActions = "revise" | "polish" | "translate" | "summarize"
+type AllowedOneTimeActions = "revise" | "polish" | "translate" | "summarize" | "slang" | "expand"
 type AllowedActions = "chat" | AllowedOneTimeActions
 
 abstract class ChatGPTAction {
@@ -211,18 +223,36 @@ class ChatAction extends ChatGPTAction {
     }
 }
 
+// Define default instructions
+const DEFAULT_REVISE_INSTRUCTION = 'Please revise the text to improve its clarity, brevity, and coherence. Document the changes made and provide a concise explanation for each modification (IMPORTANT: reply with target_language language).';
+const DEFAULT_POLISH_INSTRUCTION = 'Please correct the grammar and polish the text while adhering as closely as possible to the original intention (IMPORTANT: reply with target_language language).';
+const DEFAULT_TRANSLATE_INSTRUCTION = 'Please translate the text into target_language and only provide me with the translated content without formating.';
+const DEFAULT_SUMMARIZE_INSTRUCTION = 'Please provide a concise summary of the text, ensuring that all significant points are included (IMPORTANT: reply with target_language language).';
+const DEFAULT_SLANG_INSTRUCTION = `You are an adept artificial intelligence translator, especially skilled at converting text from various languages into natural, conversational target_language. Your goal is to ensure that the translated outcome not only accurately conveys the meaning of the original text but also sounds as if it were spoken by a native target_language speaker in a friendly and relaxed manner. Please refrain from rigid or overly formal tones, striving instead to give the translation the feel of everyday conversation.`
+const DEFAULT_EXPAND_INSTRUCTION = `As a writer with a talent for language, your task is to refine and polish the text I input, expanding it into more detailed paragraphs in target_language.`
+
 class OneTimeAction extends ChatGPTAction {
-    private getPrompt(action: AllowedOneTimeActions, language: string): string {
+    private getPrompt(action: AllowedOneTimeActions, language: string, options: Options): string {
         switch (action) {
             case "revise":
-                return `Please revise the text to improve its clarity, brevity, and coherence. Document the changes made and provide a concise explanation for each modification (IMPORTANT: reply with ${language} language).`
+                const reviseInstruction = options.reviseInstruction || DEFAULT_REVISE_INSTRUCTION.replace('target_language', language);
+                return reviseInstruction;
             case "polish":
-                return `Please correct the grammar and polish the text while adhering as closely as possible to the original intention (IMPORTANT: reply with ${language} language).`
+                const polishInstruction = options.polishInstruction || DEFAULT_POLISH_INSTRUCTION.replace('target_language', language);
+                return polishInstruction;
             case "translate":
-                return `Please translate the text into ${language} and only provide me with the translated content without formating.`
+                const translateInstruction = options.translateInstruction || DEFAULT_TRANSLATE_INSTRUCTION.replace('target_language', language);
+                return translateInstruction;
             case "summarize":
-                return `Please provide a concise summary of the text, ensuring that all significant points are included (IMPORTANT: reply with ${language} language).`
-        }
+                const summarizeInstruction = options.summarizeInstruction || DEFAULT_SUMMARIZE_INSTRUCTION.replace('target_language', language);
+                return summarizeInstruction;
+                case "slang":
+                    const slangInstruction = options.slangInstruction || DEFAULT_SLANG_INSTRUCTION.replace('target_language', language);
+                    return slangInstruction;
+                case "expand":
+                    const expandInstruction = options.expandInstruction || DEFAULT_EXPAND_INSTRUCTION.replace('target_language', language);
+                    return expandInstruction;
+            }
     }
 
     beforeRequest(popclip: PopClip, input: Input, options: Options, action: AllowedActions): { allow: boolean, reason?: string } {
@@ -235,7 +265,7 @@ class OneTimeAction extends ChatGPTAction {
         }
 
         const language = popclip.modifiers.shift ? options[`${action}SecondaryLanguage`] : options[`${action}PrimaryLanguage`]
-        const prompt = this.getPrompt(action as AllowedOneTimeActions, language)
+        const prompt = this.getPrompt(action as AllowedOneTimeActions, language, options)
         return {
             model: options.model,
             messages: [
@@ -333,6 +363,8 @@ chatGPTActions.set("revise", new OneTimeAction())
 chatGPTActions.set("polish", new OneTimeAction())
 chatGPTActions.set("translate", new OneTimeAction())
 chatGPTActions.set("summarize", new OneTimeAction())
+chatGPTActions.set("slang", new OneTimeAction())
+chatGPTActions.set("expand", new OneTimeAction())
 
 export const actions = [
     {
@@ -364,6 +396,18 @@ export const actions = [
         icon: "symbol:s.square.fill", // icon: "iconify:system-uicons:translate",
         requirements: ["text", "option-summarizeEnabled=1"],
         code: async (input: Input, options: Options, context: Context) => doAction(popclip, input, options, "summarize"),
+    },
+    {
+        title: "ChatGPTx: slang text (click while holding shift(⇧) to use the secondary language)",
+        icon: "symbol:l.square.fill", // icon: "iconify:system-uicons:translate",
+        requirements: ["text", "option-slangEnabled=1"],
+        code: async (input: Input, options: Options, context: Context) => doAction(popclip, input, options, "slang"),
+    },
+    {
+        title: "ChatGPTx: expand text (click while holding shift(⇧) to use the secondary language)",
+        icon: "symbol:e.square.fill", // icon: "iconify:system-uicons:translate",
+        requirements: ["text", "option-expandEnabled=1"],
+        code: async (input: Input, options: Options, context: Context) => doAction(popclip, input, options, "expand"),
     },
 ]
 
@@ -444,10 +488,12 @@ const chatGPTActionsOptions: Array<any> = [
 ]
 
 new Array(
-    { name: "revise", primary: "English", secondary: "Chinese Simplified" },
-    { name: "polish", primary: "English", secondary: "Chinese Simplified" },
-    { name: "translate", primary: "Chinese Simplified", secondary: "English" },
-    { name: "summarize", primary: "Chinese Simplified", secondary: "English" },
+    { name: "revise", primary: "English", secondary: "Chinese Simplified", defaultInstruction: DEFAULT_REVISE_INSTRUCTION },
+    { name: "polish", primary: "English", secondary: "Chinese Simplified", defaultInstruction: DEFAULT_POLISH_INSTRUCTION },
+    { name: "translate", primary: "Chinese Simplified", secondary: "English", defaultInstruction: DEFAULT_TRANSLATE_INSTRUCTION },
+    { name: "summarize", primary: "Chinese Simplified", secondary: "English", defaultInstruction: DEFAULT_SUMMARIZE_INSTRUCTION },
+    { name: "slang", primary: "English", secondary: "Chinese Simplified", defaultInstruction: DEFAULT_SLANG_INSTRUCTION },
+    { name: "expand", primary: "English", secondary: "Chinese Simplified", defaultInstruction: DEFAULT_EXPAND_INSTRUCTION },
 ).forEach((value) => {
     const capitalizedName = value.name.charAt(0).toUpperCase() + value.name.slice(1)
     chatGPTActionsOptions.push(
@@ -478,6 +524,13 @@ new Array(
             "default value": `${value.secondary}`,
             "values": optionLanguagesValues,
             "value labels": optionLanguagesValueLabels,
+            "inset": true
+        },
+        {
+            "identifier": `${value.name}Instruction`,
+            "label": `${capitalizedName} Instruction`,
+            "type": "string",
+            "default value": value.defaultInstruction,
             "inset": true
         })
 })
