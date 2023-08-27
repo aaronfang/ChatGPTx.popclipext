@@ -1,4 +1,18 @@
 {
+  "typedocOptions": {
+    "entryPoints": [
+        "./popclip.d.ts"
+    ],
+    "name": "PopClip Extensions JavaScript Reference",
+    "out": "./docs",
+    "disableSources": false,
+    "sort": [
+        "alphabetical"
+    ],
+    "excludeExternals": true,
+    "readme": "README-js.md",
+    "excludeNotDocumented": true
+},
   "compilerOptions": {
     "strict": true,
     "noImplicitAny": false,
@@ -15,9 +29,12 @@
     "esModuleInterop": false,
     "moduleResolution": "node",
     "resolveJsonModule": true,
+    "baseUrl": "./lib",
   },
   "include": [
     "./main.ts",
+    "./popclip.d.ts",
+    "./lib",
   ],
   "ts-standard": {
     "ignore": [
@@ -25,3 +42,4 @@
     ]
   },
 }
+

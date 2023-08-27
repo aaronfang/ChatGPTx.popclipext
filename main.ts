@@ -54,14 +54,17 @@ interface Options {
     revisePrimaryLanguage: string
     reviseSecondaryLanguage: string
     reviseInstruction: string
+
     polishEnabled: boolean
     polishPrimaryLanguage: string
     polishSecondaryLanguage: string
     polishInstruction: string
+
     translateEnabled: boolean
     translatePrimaryLanguage: string
     translateSecondaryLanguage: string
     translateInstruction: string
+
     summarizeEnabled: boolean
     summarizePrimaryLanguage: string
     summarizeSecondaryLanguage: string
@@ -71,10 +74,26 @@ interface Options {
     slangPrimaryLanguage: string
     slangSecondaryLanguage: string
     slangInstruction: string
+
     expandEnabled: boolean
     expandPrimaryLanguage: string
     expandSecondaryLanguage: string
     expandInstruction: string
+
+    midjourneyEnabled: boolean
+    midjourneyPrimaryLanguage: string
+    midjourneySecondaryLanguage: string
+    midjourneyInstruction: string
+
+    stablediffusionEnabled: boolean
+    stablediffusionPrimaryLanguage: string
+    stablediffusionSecondaryLanguage: string
+    stablediffusionInstruction: string
+
+    customEnabled: boolean
+    customPrimaryLanguage: string
+    customSecondaryLanguage: string
+    customInstruction: string
     // prompts: string
 }
 
@@ -110,7 +129,7 @@ interface APIResponse {
     }
 }
 
-type AllowedOneTimeActions = "revise" | "polish" | "translate" | "summarize" | "slang" | "expand"
+type AllowedOneTimeActions = "translate" | "slang" | "revise" | "polish" | "expand" | "summarize"  | "midjourney" | "stablediffusion" | "custom"
 type AllowedActions = "chat" | AllowedOneTimeActions
 
 abstract class ChatGPTAction {
@@ -230,28 +249,62 @@ const DEFAULT_TRANSLATE_INSTRUCTION = 'Please translate the text into target_lan
 const DEFAULT_SUMMARIZE_INSTRUCTION = 'Please provide a concise summary of the text, ensuring that all significant points are included (IMPORTANT: reply with target_language language).';
 const DEFAULT_SLANG_INSTRUCTION = `You are an adept artificial intelligence translator, especially skilled at converting text from various languages into natural, conversational target_language. Your goal is to ensure that the translated outcome not only accurately conveys the meaning of the original text but also sounds as if it were spoken by a native target_language speaker in a friendly and relaxed manner. Please refrain from rigid or overly formal tones, striving instead to give the translation the feel of everyday conversation.`
 const DEFAULT_EXPAND_INSTRUCTION = `As a writer with a talent for language, your task is to refine and polish the text I input, expanding it into more detailed paragraphs in target_language.`
+const DEFAULT_MIDJOURNEY_INSTRUCTION = `从现在开始，你是一名翻译，你会根据我输入的内容，翻译成target_language。请注意，你翻译后的内容主要服务于一个绘画AI，它只能理解具象的描述而非抽象的概念，同时根据你对绘画AI的理解，比如它可能的训练模型、自然语言处理方式等方面，进行翻译优化。由于我的描述可能会很散乱，不连贯，你需要综合考虑这些问题，然后对翻译后的内容再次优化或重组，从而使绘画AI更能清楚我在说什么。请严格按照此条规则进行翻译。 例如，我输入：一只想家的小狗。
+你不能输出：
+A homesick little dog.
+你必须输出：
+A small dog that misses home, with a sad look on its face and its tail tucked between its legs. It might be standing in front of a closed door or a gate, gazing longingly into the distance, as if hoping to catch a glimpse of its beloved home.
+当我输入内容后，请翻译我需要的target_language内容`
+const DEFAULT_STABLEDIFFUSION_INSTRUCTION = `You are a prompt AI for Stable Difussion AI, Stable Difussion is an image creation AI which is mainly used by receiving prompts and turning them into images, the only issue with stable difussion is its lack of consistency and difficulty to prompt demmanding users to use long and very technical prompts, this is where you come in handy, you will create the prompts for the user based on their request and make them be used in Stable Difussion. Here are some good examples：
+{
+    "prompt": "8k portrait of beautiful cyborg with brown hair, intricate, elegant, highly detailed, majestic, digital photography, art by artgerm and ruan jia and greg rutkowski surreal painting gold butterfly filigree, broken glass, (masterpiece, sidelighting, finely detailed beautiful eyes: 1.2), hdr, (detailed background window to a new dimension, plants and flowers:0.7) lora:more_details:0.5 infinity, infinite symbol",
+    "Negative prompt": "BadDream, FastNegativeV2"
+},
+{
+    "prompt": "1girl, japanese clothes, ponytail ,white hair, purple eyes, magic circle, blue fire, blue flames, wallpaper, landscape, blood, blood splatter, depth of field, night, light particles, light rays, sidelighting, thighs, fate \(series\), genshin impact, ****, open jacket, skirt, thighhighs, cloud",
+    "Negative prompt": "(worst quality:1.6, low quality:1.6), (zombie, sketch, interlocked fingers, comic)"
+},
+{
+    "prompt": "a portrait photo of a beautiful woman with curls and lots of freckles, (dirty blonde hair), (face portrait:1.5), dramatic light , Rembrandt lighting scheme, (hyperrealism:1.2), (photorealistic:1.2), shot with Canon EOS 5D Mark IV, detailed face, detailed hair",
+    "Negative prompt": "(deformed iris, deformed pupils, semi-realistic, cgi, 3d, render, sketch, cartoon, drawing, anime, mutated hands and fingers:1.4), (deformed, distorted, disfigured:1.3), poorly drawn, bad anatomy, wrong anatomy, extra limb, missing limb, floating limbs, disconnected limbs, mutation, mutated, ugly, disgusting, amputation"
+},
+{
+    "prompt": "digital art, fantasy style, medium shot of a sexy mature woman posing in front of night jungle, elf witch, dark skin, ponytail, black hair, huge breasts, Sophia Loren, blood, leather wristband, short ripped cloak with hood, pelvic curtain, red sash, black latex bodysuit, flat colors, low camera angle, dynamic pose, looking confident, looking serious, looking off into distance, masterpiece, best quality, high quality, absurdres, realistic, UHD,",
+    "Negative prompt": "EasyNegative, drawn by bad-artist, sketch by bad-artist-anime, (bad_prompt:0.8), (artist name, signature, watermark:1.4), (ugly:1.2), (worst quality, poor details:1.4), bad-hands-5, badhandv4, blurry, child, loli, kids"
+}
+I will give you a description. Please create positive and negative prompts in English based on this description, and return to me in the format of JSON.`
+const DEFAULT_CUSTOM_INSTRUCTION = `Please reply with target_language language.`
 
 class OneTimeAction extends ChatGPTAction {
     private getPrompt(action: AllowedOneTimeActions, language: string, options: Options): string {
         switch (action) {
+            case "translate":
+                const translateInstruction = options.translateInstruction || DEFAULT_TRANSLATE_INSTRUCTION.replace('target_language', language);
+                return translateInstruction;
+            case "slang":
+                const slangInstruction = options.slangInstruction || DEFAULT_SLANG_INSTRUCTION.replace('target_language', language);
+                return slangInstruction;
             case "revise":
                 const reviseInstruction = options.reviseInstruction || DEFAULT_REVISE_INSTRUCTION.replace('target_language', language);
                 return reviseInstruction;
             case "polish":
                 const polishInstruction = options.polishInstruction || DEFAULT_POLISH_INSTRUCTION.replace('target_language', language);
                 return polishInstruction;
-            case "translate":
-                const translateInstruction = options.translateInstruction || DEFAULT_TRANSLATE_INSTRUCTION.replace('target_language', language);
-                return translateInstruction;
+            case "expand":
+                const expandInstruction = options.expandInstruction || DEFAULT_EXPAND_INSTRUCTION.replace('target_language', language);
+                return expandInstruction;
             case "summarize":
                 const summarizeInstruction = options.summarizeInstruction || DEFAULT_SUMMARIZE_INSTRUCTION.replace('target_language', language);
                 return summarizeInstruction;
-                case "slang":
-                    const slangInstruction = options.slangInstruction || DEFAULT_SLANG_INSTRUCTION.replace('target_language', language);
-                    return slangInstruction;
-                case "expand":
-                    const expandInstruction = options.expandInstruction || DEFAULT_EXPAND_INSTRUCTION.replace('target_language', language);
-                    return expandInstruction;
+            case "midjourney":
+                const midjourneyInstruction = options.midjourneyInstruction || DEFAULT_MIDJOURNEY_INSTRUCTION.replace('target_language', language);
+                return midjourneyInstruction;
+            case "stablediffusion":
+                const stablediffusionInstruction = options.stablediffusionInstruction || DEFAULT_STABLEDIFFUSION_INSTRUCTION.replace('target_language', language);
+                return stablediffusionInstruction;
+            case "custom":
+                const customInstruction = options.customInstruction || DEFAULT_CUSTOM_INSTRUCTION.replace('target_language', language);
+                return customInstruction;
             }
     }
 
@@ -365,6 +418,9 @@ chatGPTActions.set("translate", new OneTimeAction())
 chatGPTActions.set("summarize", new OneTimeAction())
 chatGPTActions.set("slang", new OneTimeAction())
 chatGPTActions.set("expand", new OneTimeAction())
+chatGPTActions.set("midjourney", new OneTimeAction())
+chatGPTActions.set("stablediffusion", new OneTimeAction())
+chatGPTActions.set("custom", new OneTimeAction())
 
 export const actions = [
     {
@@ -381,33 +437,51 @@ export const actions = [
     },
     {
         title: "ChatGPTx: polish text (click while holding shift(⇧) to use the secondary language)",
-        icon: "symbol:p.square.fill", // icon: "iconify:lucide:stars",
+        icon: "circle filled 磨", // icon: "iconify:lucide:stars",
         requirements: ["text", "option-polishEnabled=1"],
         code: async (input: Input, options: Options, context: Context) => doAction(popclip, input, options, "polish"),
     },
     {
         title: "ChatGPTx: translate text (click while holding shift(⇧) to use the secondary language)",
-        icon: "symbol:t.square.fill", // icon: "iconify:system-uicons:translate",
+        icon: "circle filled 译", // icon: "iconify:system-uicons:translate",
         requirements: ["text", "option-translateEnabled=1"],
         code: async (input: Input, options: Options, context: Context) => doAction(popclip, input, options, "translate"),
     },
     {
         title: "ChatGPTx: summarize text (click while holding shift(⇧) to use the secondary language)",
-        icon: "symbol:s.square.fill", // icon: "iconify:system-uicons:translate",
+        icon: "circle filled 概", // icon: "iconify:system-uicons:translate",
         requirements: ["text", "option-summarizeEnabled=1"],
         code: async (input: Input, options: Options, context: Context) => doAction(popclip, input, options, "summarize"),
     },
     {
         title: "ChatGPTx: slang text (click while holding shift(⇧) to use the secondary language)",
-        icon: "symbol:l.square.fill", // icon: "iconify:system-uicons:translate",
+        icon: "circle filled 俚", // icon: "iconify:system-uicons:translate",
         requirements: ["text", "option-slangEnabled=1"],
         code: async (input: Input, options: Options, context: Context) => doAction(popclip, input, options, "slang"),
     },
     {
         title: "ChatGPTx: expand text (click while holding shift(⇧) to use the secondary language)",
-        icon: "symbol:e.square.fill", // icon: "iconify:system-uicons:translate",
+        icon: "circle filled 扩", // icon: "iconify:system-uicons:translate",
         requirements: ["text", "option-expandEnabled=1"],
         code: async (input: Input, options: Options, context: Context) => doAction(popclip, input, options, "expand"),
+    },
+    {
+        title: "ChatGPTx: midjourney text (click while holding shift(⇧) to use the secondary language)",
+        icon: "square filled MJ", // icon: "iconify:system-uicons:translate",
+        requirements: ["text", "option-midjourneyEnabled=1"],
+        code: async (input: Input, options: Options, context: Context) => doAction(popclip, input, options, "midjourney"),
+    },
+    {
+        title: "ChatGPTx: stablediffusion text (click while holding shift(⇧) to use the secondary language)",
+        icon: "square filled SD", // icon: "iconify:system-uicons:translate",
+        requirements: ["text", "option-stablediffusionEnabled=1"],
+        code: async (input: Input, options: Options, context: Context) => doAction(popclip, input, options, "stablediffusion"),
+    },
+    {
+        title: "ChatGPTx: custom text (click while holding shift(⇧) to use the secondary language)",
+        icon: "circle filled 自", // icon: "iconify:system-uicons:translate",
+        requirements: ["text", "option-customEnabled=1"],
+        code: async (input: Input, options: Options, context: Context) => doAction(popclip, input, options, "custom"),
     },
 ]
 
@@ -442,7 +516,7 @@ const chatGPTActionsOptions: Array<any> = [
         "identifier": "apiType",
         "label": "API Type",
         "type": "multiple",
-        "default value": "openai",
+        "default value": "azure",
         "values": [
             "openai",
             "azure"
@@ -464,20 +538,20 @@ const chatGPTActionsOptions: Array<any> = [
         "identifier": "model",
         "label": "Model",
         "type": "string",
-        "default value": "gpt-3.5-turbo"
+        "default value": "gpt-4-32k"
     },
     {
         "identifier": "apiVersion",
         "label": "API Version (Azure only)",
         "type": "string",
-        "default value": "2023-07-01-preview"
+        "default value": "2023-03-15-preview"
     },
     {
         "identifier": "temperature",
         "label": "Sampling Temperature",
         "type": "string",
         "description": ">=0, <=2. Higher values will result in a more random output, and vice versa.",
-        "default value": "1"
+        "default value": "0.7"
     },
     {
         "identifier": "opinionedActions",
@@ -488,12 +562,15 @@ const chatGPTActionsOptions: Array<any> = [
 ]
 
 new Array(
-    { name: "revise", primary: "English", secondary: "Chinese Simplified", defaultInstruction: DEFAULT_REVISE_INSTRUCTION },
-    { name: "polish", primary: "English", secondary: "Chinese Simplified", defaultInstruction: DEFAULT_POLISH_INSTRUCTION },
-    { name: "translate", primary: "Chinese Simplified", secondary: "English", defaultInstruction: DEFAULT_TRANSLATE_INSTRUCTION },
-    { name: "summarize", primary: "Chinese Simplified", secondary: "English", defaultInstruction: DEFAULT_SUMMARIZE_INSTRUCTION },
+    { name: "translate", primary: "English", secondary: "Chinese Simplified", defaultInstruction: DEFAULT_TRANSLATE_INSTRUCTION },
     { name: "slang", primary: "English", secondary: "Chinese Simplified", defaultInstruction: DEFAULT_SLANG_INSTRUCTION },
+    // { name: "revise", primary: "English", secondary: "Chinese Simplified", defaultInstruction: DEFAULT_REVISE_INSTRUCTION },
+    { name: "polish", primary: "English", secondary: "Chinese Simplified", defaultInstruction: DEFAULT_POLISH_INSTRUCTION },
     { name: "expand", primary: "English", secondary: "Chinese Simplified", defaultInstruction: DEFAULT_EXPAND_INSTRUCTION },
+    { name: "summarize", primary: "English", secondary: "Chinese Simplified", defaultInstruction: DEFAULT_SUMMARIZE_INSTRUCTION },
+    { name: "midjourney", primary: "English", secondary: "Chinese Simplified", defaultInstruction: DEFAULT_MIDJOURNEY_INSTRUCTION },
+    { name: "stablediffusion", primary: "English", secondary: "Chinese Simplified", defaultInstruction: DEFAULT_STABLEDIFFUSION_INSTRUCTION },
+    { name: "custom", primary: "English", secondary: "Chinese Simplified", defaultInstruction: DEFAULT_CUSTOM_INSTRUCTION },
 ).forEach((value) => {
     const capitalizedName = value.name.charAt(0).toUpperCase() + value.name.slice(1)
     chatGPTActionsOptions.push(
@@ -503,36 +580,46 @@ new Array(
             "type": "heading"
         },
         {
+            
             "identifier": `${value.name}Enabled`,
             "label": "Enable",
             "type": "boolean",
             "inset": true
-        },
-        {
-            "identifier": `${value.name}PrimaryLanguage`,
-            "label": "Primary",
-            "type": "multiple",
-            "default value": `${value.primary}`,
-            "values": optionLanguagesValues,
-            "value labels": optionLanguagesValueLabels,
-            "inset": true
-        },
-        {
-            "identifier": `${value.name}SecondaryLanguage`,
-            "label": "Secondary",
-            "type": "multiple",
-            "default value": `${value.secondary}`,
-            "values": optionLanguagesValues,
-            "value labels": optionLanguagesValueLabels,
-            "inset": true
-        },
-        {
+        })
+    if (value.name !== "midjourney" && value.name !== "stablediffusion") {
+        chatGPTActionsOptions.push(
+            {
+                "identifier": `${value.name}PrimaryLanguage`,
+                "label": "Primary",
+                "type": "multiple",
+                "default value": `${value.primary}`,
+                "values": optionLanguagesValues,
+                "value labels": optionLanguagesValueLabels,
+                "inset": true
+            },
+            {
+                "identifier": `${value.name}SecondaryLanguage`,
+                "label": "Secondary",
+                "type": "multiple",
+                "default value": `${value.secondary}`,
+                "values": optionLanguagesValues,
+                "value labels": optionLanguagesValueLabels,
+                "inset": true
+            })
+    }
+    if (value.name === "custom") {
+        chatGPTActionsOptions.push({
             "identifier": `${value.name}Instruction`,
             "label": `${capitalizedName} Instruction`,
             "type": "string",
             "default value": value.defaultInstruction,
-            "inset": true
+            "height": "auto",
+            "white-space": "pre-wrap",
+            "inset": false
         })
+    }
 })
 
 export const options = chatGPTActionsOptions
+
+
