@@ -238,7 +238,7 @@ class ChatAction extends ChatGPTAction {
     processResponse(popclip: PopClip, resp: APIResponse): string {
         const chat = this.getChatHistory(popclip.context.appIdentifier)
         chat.push(resp.data.choices[0].message)
-        return resp.data.choices[0].message.content.trim()
+        return resp.data.choices[0].message.content.trim().replace(/^"|"$/g, '')
     }
 }
 
@@ -392,14 +392,14 @@ async function doAction(popclip: PopClip, input: Input, options: Options, action
         const result = actionImpl.processResponse(popclip, resp)
 
         if (popclip.context.canPaste) {
-            let toBePasted = `\n\n${result}\n`
-            if (!isTerminalApplication(popclip.context.appName) && popclip.context.canCopy) {
-                // Prevent the original selected text from being replaced.
-                toBePasted = `${input.text}\n\n${result}\n`
-            }
-            popclip.pasteText(toBePasted, { restore: true })
-            popclip.showSuccess()
-        } else {
+        //     let toBePasted = `\n\n${result}\n`
+        //     if (!isTerminalApplication(popclip.context.appName) && popclip.context.canCopy) {
+        //         // Prevent the original selected text from being replaced.
+        //         toBePasted = `${input.text}\n\n${result}\n`
+        //     }
+        //     popclip.pasteText(toBePasted, { restore: true })
+        //     popclip.showSuccess()
+        // } else {
             popclip.copyText(result)
             popclip.showText(result, { preview: true })
         }
