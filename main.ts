@@ -238,7 +238,7 @@ class ChatAction extends ChatGPTAction {
     processResponse(popclip: PopClip, resp: APIResponse): string {
         const chat = this.getChatHistory(popclip.context.appIdentifier)
         chat.push(resp.data.choices[0].message)
-        return resp.data.choices[0].message.content.trim().replace(/^"|"$/g, '')
+        return resp.data.choices[0].message.content.trim()
     }
 }
 
@@ -389,7 +389,7 @@ async function doAction(popclip: PopClip, input: Input, options: Options, action
         const resp: APIResponse = await openai.post(
             "chat/completions", requestData
         )
-        const result = actionImpl.processResponse(popclip, resp)
+        const result = actionImpl.processResponse(popclip, resp).replace(/^"|"$/g, '')
 
         if (popclip.context.canPaste) {
         //     let toBePasted = `\n\n${result}\n`
@@ -400,6 +400,10 @@ async function doAction(popclip: PopClip, input: Input, options: Options, action
         //     popclip.pasteText(toBePasted, { restore: true })
         //     popclip.showSuccess()
         // } else {
+            let toBePasted = `${result}`
+            popclip.pasteText(toBePasted, { restore: true })
+            popclip.showSuccess()
+        } else {
             popclip.copyText(result)
             popclip.showText(result, { preview: true })
         }
